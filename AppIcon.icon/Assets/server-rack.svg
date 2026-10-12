@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="chassis" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#294B7A"/>
+      <stop offset="0.48" stop-color="#1C3764"/>
+      <stop offset="1" stop-color="#122348"/>
+    </linearGradient>
+    <linearGradient id="bay" x1="0" y1="0" x2="0.1" y2="1">
+      <stop offset="0" stop-color="#2C4B78"/>
+      <stop offset="1" stop-color="#1B3157"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10213C"/>
+      <stop offset="1" stop-color="#0B1830"/>
+    </linearGradient>
+  </defs>
+
+  <!-- The case and its raised front rails create a single compact rack silhouette. -->
+  <rect x="198" y="172" width="628" height="684" rx="96" fill="#0D1932" opacity="0.34" transform="translate(0 18)"/>
+  <rect x="198" y="164" width="628" height="684" rx="96" fill="url(#chassis)" stroke="#B6DFFF" stroke-opacity="0.26" stroke-width="12"/>
+  <path d="M292 180H732" stroke="#D8EEFF" stroke-opacity="0.24" stroke-width="12" stroke-linecap="round"/>
+  <path d="M222 285V741" stroke="#8EB4E0" stroke-opacity="0.20" stroke-width="12" stroke-linecap="round"/>
+  <path d="M802 285V741" stroke="#08162E" stroke-opacity="0.42" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Upper rack unit. -->
+  <rect x="250" y="246" width="524" height="158" rx="42" fill="url(#bay)" stroke="#A8D1F5" stroke-opacity="0.20" stroke-width="7"/>
+  <path d="M279 260H745" stroke="#E1F2FF" stroke-opacity="0.14" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="316" cy="324" r="12" fill="#76F0C4"/>
+  <circle cx="359" cy="324" r="12" fill="#F5C66E"/>
+  <circle cx="402" cy="324" r="12" fill="#83C8FF"/>
+  <g fill="#A9C3E1" fill-opacity="0.42">
+    <rect x="487" y="299" width="16" height="50" rx="8"/>
+    <rect x="519" y="299" width="16" height="50" rx="8"/>
+    <rect x="551" y="299" width="16" height="50" rx="8"/>
+    <rect x="583" y="299" width="16" height="50" rx="8"/>
+    <rect x="615" y="299" width="16" height="50" rx="8"/>
+    <rect x="647" y="299" width="16" height="50" rx="8"/>
+    <rect x="679" y="299" width="16" height="50" rx="8"/>
+  </g>
+
+  <!-- Center bay reads as a status display without tiny labels or numbers. -->
+  <rect x="250" y="424" width="524" height="212" rx="42" fill="#172C50" stroke="#A8D1F5" stroke-opacity="0.18" stroke-width="7"/>
+  <rect x="286" y="456" width="452" height="148" rx="28" fill="url(#screen)" stroke="#8AB7E7" stroke-opacity="0.22" stroke-width="6"/>
+  <path d="M313 506H711M313 556H711" stroke="#7F9FC4" stroke-opacity="0.13" stroke-width="5" stroke-linecap="round"/>
+  <path d="M334 474H690" stroke="#E0F2FF" stroke-opacity="0.12" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Lower rack unit. -->
+  <rect x="250" y="656" width="524" height="140" rx="40" fill="url(#bay)" stroke="#A8D1F5" stroke-opacity="0.20" stroke-width="7"/>
+  <path d="M279 670H745" stroke="#E1F2FF" stroke-opacity="0.14" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="316" cy="726" r="12" fill="#76F0C4"/>
+  <circle cx="359" cy="726" r="12" fill="#83C8FF"/>
+  <g fill="#A9C3E1" fill-opacity="0.42">
+    <rect x="487" y="702" width="16" height="48" rx="8"/>
+    <rect x="519" y="702" width="16" height="48" rx="8"/>
+    <rect x="551" y="702" width="16" height="48" rx="8"/>
+    <rect x="583" y="702" width="16" height="48" rx="8"/>
+    <rect x="615" y="702" width="16" height="48" rx="8"/>
+    <rect x="647" y="702" width="16" height="48" rx="8"/>
+    <rect x="679" y="702" width="16" height="48" rx="8"/>
+  </g>
+</svg>

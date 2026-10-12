@@ -1,0 +1,65 @@
+{
+  "fill": {
+    "linear-gradient": [
+      "extended-srgb:0.13725,0.52549,0.83922,1.00000",
+      "extended-srgb:0.09412,0.17647,0.39216,1.00000"
+    ],
+    "orientation": {
+      "start": {
+        "x": 0.08,
+        "y": 0.08
+      },
+      "stop": {
+        "x": 0.92,
+        "y": 0.94
+      }
+    }
+  },
+  "groups": [
+    {
+      "name": "Telemetry",
+      "lighting": "combined",
+      "layers": [
+        {
+          "name": "Live telemetry trace",
+          "image-name": "telemetry.svg",
+          "fill": "none",
+          "glass": false
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.22
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    },
+    {
+      "name": "Server rack",
+      "lighting": "combined",
+      "layers": [
+        {
+          "name": "Three-bay enclosure",
+          "image-name": "server-rack.svg",
+          "fill": "none",
+          "glass": false
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.38
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": [
+      "macOS"
+    ]
+  }
+}

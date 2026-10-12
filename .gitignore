@@ -1,0 +1,18 @@
+.build/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+.build-log.txt
+dist/
+
+
+# Local Apple distribution credentials and profiles
+*.p12
+*.p8
+*.provisionprofile
+*.mobileprovision
+.env
+.env.*
+
+# Local design-tool captures and working context
+.impeccable/
