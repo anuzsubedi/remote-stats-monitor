@@ -8,54 +8,95 @@ struct ConnectionView: View {
     private var isEditing: Bool { model.sessions.contains { $0.id == model.draft.id } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: "server.rack")
-                    .font(.title).foregroundStyle(.secondary).accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(isEditing ? "Connection" : "Add server").font(.largeTitle.weight(.bold))
-                    Text("Use an SSH address or a saved SSH alias.")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(isEditing ? "Connection" : "Add server")
+                        .font(.title2.weight(.semibold))
+                    Text("Connect with an SSH address or saved alias.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
+                Spacer(minLength: 0)
             }
-            GroupBox {
-                ConnectionFieldsView(connection: $model.draft, chooseKey: chooseKey)
-                    .padding(10)
-            }
-            Toggle("Collect GPU usage", isOn: $model.draft.collectGPU)
-                .help("Enable GPU sampling for this server. Off skips GPU commands and counter scans.")
-            Text("Credentials are saved in Keychain. Private keys stay in their original files.")
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if let error = model.error ?? (model.selectedSession?.id == model.draft.id ? model.selectedSession?.error : nil) {
-                Label(error, systemImage: "exclamationmark.circle.fill")
-                    .font(.callout).foregroundStyle(.red).lineLimit(4).help(error)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            HStack {
-                Spacer()
+            .padding(.horizontal, 24)
+            .padding(.top, 22)
+            .padding(.bottom, 8)
+
+            Form {
+                Section {
+                    ConnectionFieldsView(connection: $model.draft, chooseKey: chooseKey)
+                } header: {
+                    Text("SSH connection")
+                } footer: {
+                    Text("Leave the port blank to use your SSH config or port 22.")
+                }
+
+                Section {
+                    Toggle("Collect GPU usage", isOn: $model.draft.collectGPU)
+                } header: {
+                    Text("Monitoring")
+                } footer: {
+                    Text("Turn this off to skip GPU commands and counter scans.")
+                }
+
+                Section {
+                    Label("Passwords and key passphrases are saved in Keychain.", systemImage: "key.horizontal")
+                } header: {
+                    Text("Credentials")
+                } footer: {
+                    Text("Private keys stay in their original files.")
+                }
+
+                if let error = model.error ?? (model.selectedSession?.id == model.draft.id ? model.selectedSession?.error : nil) {
+                    Section("Connection error") {
+                        Label(error, systemImage: "exclamationmark.circle.fill")
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .help(error)
+                    }
+                }
+
                 if isEditing {
-                    Button("Forget server", role: .destructive) { showForgetConfirmation = true }
+                    Section {
+                        Button("Forget server", role: .destructive) {
+                            showForgetConfirmation = true
+                        }
+                    }
                 }
-            }.font(.callout)
-            #if DEBUG
-            DebugServersView(model: model)
-            #endif
+
+                #if DEBUG
+                Section("Developer tools") {
+                    DebugServersView(model: model)
+                }
+                #endif
+            }
+            .formStyle(.grouped)
+
             Divider()
+
             HStack(spacing: 10) {
                 if model.isConnecting {
                     ProgressView().controlSize(.small)
-                    Text("Connecting…").font(.callout).foregroundStyle(.secondary)
+                    Text("Connecting…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Cancel") { dismissWindow(id: "connection") }
                     .keyboardShortcut(.cancelAction)
                 Button("Connect") { Task { await model.beginConnection() } }
-                    .buttonStyle(.glassProminent).keyboardShortcut(.defaultAction)
+                    .buttonStyle(.glassProminent)
+                    .keyboardShortcut(.defaultAction)
             }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         }
-        .padding(24)
-        .frame(width: 520)
+        .frame(width: 560, height: 660)
         .background(.background)
         .disabled(model.isConnecting)
         .alert("Trust this server?", isPresented: $model.showHostKeyPrompt) {

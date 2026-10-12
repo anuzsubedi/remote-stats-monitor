@@ -6,43 +6,44 @@ struct WidgetMetricCell: View {
     var compact = false
     var stacked = false
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 3 : 6) {
-            if stacked {
-                Text(metric == .temperature ? "Temp" : metric.rawValue)
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                Text(metric.formatted(snapshot))
-                    .font(.system(size: 19, weight: .medium, design: .rounded))
-                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-            } else {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(metric == .temperature ? "Temp" : metric.rawValue)
-                    .font(.caption2).foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-                Text(metric.formatted(snapshot))
-                    .font(compact ? .caption.weight(.semibold) : .title3.weight(.medium))
-                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-            }
-            }
-            WidgetUsageScale(value: snapshot.flatMap { metric.value($0) }, warning: metric.warning(snapshot))
-        }.accessibilityElement(children: .combine)
+    private var title: String {
+        metric == .temperature ? "Temp" : metric.rawValue
     }
-}
 
-struct WidgetUsageScale: View {
-    let value: Double?
-    var warning = false
+    private var warningDescription: String {
+        metric == .temperature ? "high temperature" : "high \(metric.rawValue.lowercased()) use"
+    }
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Capsule().fill(.quaternary)
-                if let value {
-                    Capsule().fill(warning ? Color.orange : Color.accentColor)
-                        .frame(width: geometry.size.width * min(1, max(0, value / 100)))
-                        .widgetAccentable()
+        VStack(alignment: .leading, spacing: compact ? 2 : 6) {
+            if stacked {
+                Text(title)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                WidgetMetricValue(
+                    metric: metric,
+                    snapshot: snapshot,
+                    font: .title3.weight(.semibold),
+                    alignment: .leading
+                )
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(title)
+                        .font(compact ? .caption2.weight(.medium) : .caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 2)
+                    WidgetMetricValue(
+                        metric: metric,
+                        snapshot: snapshot,
+                        font: compact ? .caption.weight(.semibold) : .title3.weight(.semibold)
+                    )
                 }
             }
-        }.frame(height: 3).accessibilityHidden(true)
+            WidgetUsageScale(value: snapshot.flatMap { metric.value($0) }, warning: metric.warning(snapshot))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(metric.rawValue + ", " + metric.formatted(snapshot) + (metric.warning(snapshot) ? ", \(warningDescription)" : ""))
     }
 }

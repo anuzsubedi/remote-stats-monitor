@@ -8,10 +8,10 @@ struct DebugServersView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Label("Debug", systemImage: "ladybug")
-                    .font(.callout.weight(.semibold))
-                Spacer(minLength: 8)
+            HStack(spacing: 10) {
+                Label("Test servers", systemImage: "ladybug")
+                    .font(.callout.weight(.medium))
+                Spacer(minLength: 12)
                 Button("Add test servers", systemImage: "plus") {
                     model.addSyntheticServers()
                     dismissWindow(id: "connection")
@@ -25,9 +25,12 @@ struct DebugServersView: View {
                 .disabled(!model.hasSyntheticServers)
             }
 
-            Text("Adds 8 test servers to the app and Debug widget picker.")
+            Text(model.hasSyntheticServers
+                 ? "Eight test servers are loaded in the app and Debug widget picker."
+                 : "Adds eight test servers to the app and Debug widget picker.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

@@ -4,40 +4,105 @@ struct ProcessesView: View {
     @Bindable var model: MonitorModel
     @State private var search = ""
 
+    private var filteredProcesses: [RemoteProcess] {
+        model.snapshot?.processes.filter {
+            search.isEmpty || $0.name.localizedStandardContains(search)
+        } ?? []
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Processes").font(.largeTitle.weight(.bold))
-                Spacer()
-                Menu(model.connection?.displayName ?? "Servers") {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Text("Processes")
+                    .font(.largeTitle.weight(.bold))
+
+                Spacer(minLength: 16)
+
+                Menu {
                     ForEach(model.sessions) { session in
-                        Button(session.connection.displayName) { model.select(session.id) }
+                        Button {
+                            model.select(session.id)
+                        } label: {
+                            if model.selectedID == session.id {
+                                Label(session.connection.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(session.connection.displayName)
+                            }
+                        }
                     }
-                }.fixedSize()
-                Spacer()
-                Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.refresh() } }
-                    .disabled(model.isRefreshing || model.connection == nil)
-            }
-            TextField("Find a process", text: $search)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Find a process")
-            if let snapshot = model.snapshot {
-                TimelineView(.periodic(from: .now, by: 5)) { timeline in
-                    HStack {
-                        Text(ReadingStatus.label(snapshot, at: timeline.date))
-                        Text(snapshot.sampledAt, format: .dateTime.hour().minute().second())
-                    }.font(.caption).foregroundStyle(.secondary)
+                } label: {
+                    Label(model.connection?.displayName ?? "Select server", systemImage: "server.rack")
+                        .lineLimit(1)
                 }
-                Text("Up to 100 processes with the highest CPU or memory usage.")
-                    .font(.caption).foregroundStyle(.secondary)
-                ScrollView {
-                    ProcessListView(processes: snapshot.processes.filter { search.isEmpty || $0.name.localizedStandardContains(search) }, limit: 100, showsTitle: false)
+                .frame(maxWidth: 240)
+                .disabled(model.sessions.isEmpty)
+
+                Button {
+                    Task { await model.refresh() }
+                } label: {
+                    if model.isRefreshing {
+                        HStack(spacing: 7) {
+                            ProgressView().controlSize(.small)
+                            Text("Refreshing…")
+                        }
+                    } else {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
                 }
-            } else {
-                ContentUnavailableView("No process readings", systemImage: "list.bullet.rectangle", description: Text("Connect a server to view its processes."))
+                .disabled(model.isRefreshing || model.connection == nil)
             }
+            .padding(24)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 16) {
+                TextField("Find a process", text: $search)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Find a process")
+                    .frame(maxWidth: 380)
+
+                if let snapshot = model.snapshot {
+                    TimelineView(.periodic(from: .now, by: 5)) { timeline in
+                        HStack {
+                            Text(ReadingStatus.label(snapshot, at: timeline.date))
+                                .font(.callout.weight(.medium))
+                            Spacer()
+                            Text("Updated \(snapshot.sampledAt, format: .dateTime.hour().minute().second())")
+                                .font(.callout.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+
+                    if snapshot.processes.isEmpty {
+                        ContentUnavailableView(
+                            "No process readings",
+                            systemImage: "list.bullet.rectangle",
+                            description: Text("The latest server reading did not include any processes.")
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if filteredProcesses.isEmpty {
+                        ContentUnavailableView.search(text: search)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            ProcessListView(processes: filteredProcesses, limit: 100, showsTitle: false)
+                                .padding(.top, 4)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                } else {
+                    ContentUnavailableView(
+                        "No process readings",
+                        systemImage: "list.bullet.rectangle",
+                        description: Text("Connect a server to view its processes.")
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(24)
-        .frame(minWidth: 540, minHeight: 360)
+        .frame(minWidth: 600, minHeight: 440)
     }
 }

@@ -10,6 +10,7 @@ Download the ZIP from [GitHub Releases](https://github.com/anuzsubedi/remote-sta
 
 - Monitor multiple servers concurrently, with selected-server, list, and grid views.
 - CPU, memory, root disk, temperature, optional GPU utilization, and per-process readings.
+- Native Liquid Glass widget surfaces, with a Reduce Transparency fallback.
 - Nine desktop widgets: Server Overview, Server List, Server Grid, CPU, GPU, Memory, Disk, Temperature, and Processes.
 - Fleet widgets show up to four servers at medium size or eight at large size.
 - Single-server widgets use previous/next arrows. Use **Edit Widget** to set a specific server; widgets of the same type with the same configured server share their arrow navigation selection.
