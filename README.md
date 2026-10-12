@@ -8,7 +8,8 @@ Download the ZIP from [GitHub Releases](https://github.com/anuzsubedi/remote-sta
 
 ## Features
 
-- Monitor multiple servers concurrently, with selected-server, list, and grid views.
+- Monitor multiple servers concurrently, with Overview, Servers, Processes, and Settings pages and full-width server list/grid views.
+- Give each server a nickname and icon when adding or editing it; identity changes preserve current readings without reconnecting.
 - CPU, memory, root disk, temperature, optional GPU utilization, and per-process readings.
 - Native Liquid Glass widget surfaces, with a Reduce Transparency fallback.
 - Nine desktop widgets: Server Overview, Server List, Server Grid, CPU, GPU, Memory, Disk, Temperature, and Processes.
@@ -26,7 +27,7 @@ The app polls approximately every five seconds while running. WidgetKit determin
 
 ## GPU collection
 
-GPU collection is **off by default**, including for previously saved connections. Enable **Collect GPU usage** in a server's connection settings and click **Connect** to save. Disabled collection skips all GPU commands and counter scans.
+GPU collection is **off by default**, including for previously saved connections. Enable **Collect GPU usage** in a server's connection settings and click **Save changes** to save. Disabled collection skips all GPU commands and counter scans.
 
 Supported sources include Raspberry Pi V3D counters, Linux DRM engine counters, AMD `gpu_busy_percent`, and NVIDIA `nvidia-smi`. Integrated, discrete, and external GPUs are supported when their driver exposes these counters. The display uses the busiest available GPU or engine. Pi/DRM sampling requires an existing Python 3 installation; DRM counters cover processes readable by the SSH user. NVIDIA sampling requires `timeout` and is bounded to one second. The app never installs software on the server.
 

@@ -4,6 +4,7 @@ struct MenuPanel: View {
     @Bindable var model: MonitorModel
     @Environment(\.openWindow) private var openWindow
     @AppStorage("menuLayout") private var storedLayout = ServerLayout.single
+    var onOpenSection: ((AppNavigationSection) -> Void)? = nil
     var previewLayout: ServerLayout? = nil
 
     private var layout: ServerLayout { previewLayout ?? storedLayout }
@@ -23,7 +24,7 @@ struct MenuPanel: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Remote Stats")
                         .font(.headline)
-                    Text(model.sessions.count == 1 ? "1 saved server" : "\(model.sessions.count) saved servers")
+                    Text(model.sessions.count == 1 ? "1 server" : "\(model.sessions.count) servers")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -31,8 +32,7 @@ struct MenuPanel: View {
                 Spacer(minLength: 8)
 
                 Button("Open servers", systemImage: "arrow.up.right.square") {
-                    openWindow(id: "servers")
-                    NSApp.activate()
+                    openSection(.overview)
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
@@ -54,7 +54,7 @@ struct MenuPanel: View {
 
             Divider()
 
-            ServerBrowser(model: model, layout: layout, compact: true)
+            ServerBrowser(model: model, layout: layout, compact: true, onShowProcesses: { openSection(.processes) })
                 .frame(height: browserHeight)
 
             Divider()
@@ -62,14 +62,14 @@ struct MenuPanel: View {
             HStack(spacing: 10) {
                 Button("Add server", systemImage: "plus") {
                     model.addServer()
+                    openSection(.servers)
                     openWindow(id: "connection")
                     NSApp.activate()
                 }
                 .buttonStyle(.glassProminent)
 
                 Button("All servers", systemImage: "server.rack") {
-                    openWindow(id: "servers")
-                    NSApp.activate()
+                    openSection(.servers)
                 }
                 .buttonStyle(.glass)
 
@@ -85,8 +85,7 @@ struct MenuPanel: View {
     private var settingsMenu: some View {
         Menu("More", systemImage: "ellipsis") {
             Button("Settings & widgets…") {
-                openWindow(id: "settings")
-                NSApp.activate()
+                openSection(.settings)
             }
 
             if model.selectedSession != nil {
@@ -112,7 +111,17 @@ struct MenuPanel: View {
         }
         .labelStyle(.iconOnly)
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .fixedSize()
         .help("More actions")
+    }
+
+    private func openSection(_ section: AppNavigationSection) {
+        if let onOpenSection {
+            onOpenSection(section)
+        } else {
+            openWindow(id: "servers")
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }

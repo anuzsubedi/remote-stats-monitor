@@ -18,18 +18,18 @@ struct WidgetServerAction: AppIntent {
         let defaults = UserDefaults(suiteName: SnapshotStore.group)
         let key = "widget-navigation." + scope
         switch action {
-        case "choose": defaults?.set(true, forKey: key + ".choosing")
-        case "close": defaults?.set(false, forKey: key + ".choosing")
-        case "page": defaults?.set((defaults?.integer(forKey: key + ".page") ?? 0) + 1, forKey: key + ".page")
-        case "select":
-            if let id = UUID(uuidString: serverID), WidgetServerSource.record(for: id) != nil {
-                defaults?.set(serverID, forKey: key + ".server")
-            }
-            defaults?.set(false, forKey: key + ".choosing")
         case "next", "previous":
             let servers = WidgetServerSource.servers()
             if !servers.isEmpty {
-                let index = servers.firstIndex { $0.id.uuidString == serverID } ?? (action == "previous" ? 0 : -1)
+                // A second tap can arrive before WidgetKit has rendered a new entry,
+                // so serverID may still describe the earlier card. Prefer the last
+                // persisted choice, then fall back to the rendered entry.
+                let persistedID = defaults?.string(forKey: key + ".server")
+                let index = [persistedID, serverID]
+                    .compactMap { candidate in
+                        candidate.flatMap { id in servers.firstIndex { $0.id.uuidString == id } }
+                    }
+                    .first ?? (action == "previous" ? 0 : -1)
                 let offset = action == "previous" ? -1 : 1
                 defaults?.set(servers[(index + offset + servers.count) % servers.count].id.uuidString, forKey: key + ".server")
             }

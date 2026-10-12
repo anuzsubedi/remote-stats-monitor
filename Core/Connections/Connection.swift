@@ -16,6 +16,8 @@ struct Connection: Codable, Equatable, Identifiable, Sendable {
     var id: UUID
     var authentication = Authentication.sshConfig
     var collectGPU = false
+    var nickname = ""
+    var iconName = "server.rack"
     var password = ""
     var privateKeyPath = ""
     var passphrase = ""
@@ -71,6 +73,8 @@ struct Connection: Codable, Equatable, Identifiable, Sendable {
     var usesExplicitPort: Bool { !portTextValue.isEmpty }
 
     var displayName: String {
+        let nickname = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !nickname.isEmpty { return nickname }
         let value = address.trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? "Server" : value
     }
@@ -84,10 +88,14 @@ struct Connection: Codable, Equatable, Identifiable, Sendable {
         privateKeyPath: String = "",
         passphrase: String = "",
         id: UUID = UUID(),
-        portText: String? = nil
+        portText: String? = nil,
+        nickname: String = "",
+        iconName: String = "server.rack"
     ) {
         self.id = id
         self.authentication = authentication
+        self.nickname = nickname
+        self.iconName = iconName
         self.password = password
         self.privateKeyPath = privateKeyPath
         self.passphrase = passphrase
@@ -188,6 +196,7 @@ struct Connection: Codable, Equatable, Identifiable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case collectGPU, id, address, host, username, port, portText, authentication, password, privateKeyPath, passphrase
+        case nickname, iconName
     }
 
     init(from decoder: Decoder) throws {
@@ -195,6 +204,8 @@ struct Connection: Codable, Equatable, Identifiable, Sendable {
         collectGPU = try values.decodeIfPresent(Bool.self, forKey: .collectGPU) ?? false
         id = try values.decodeIfPresent(UUID.self, forKey: .id) ?? Self.legacyIdentifier
         authentication = try values.decodeIfPresent(Authentication.self, forKey: .authentication) ?? .sshConfig
+        nickname = try values.decodeIfPresent(String.self, forKey: .nickname) ?? ""
+        iconName = try values.decodeIfPresent(String.self, forKey: .iconName) ?? "server.rack"
         password = try values.decodeIfPresent(String.self, forKey: .password) ?? ""
         privateKeyPath = try values.decodeIfPresent(String.self, forKey: .privateKeyPath) ?? ""
         passphrase = try values.decodeIfPresent(String.self, forKey: .passphrase) ?? ""
@@ -228,6 +239,8 @@ struct Connection: Codable, Equatable, Identifiable, Sendable {
         try values.encode(port, forKey: .port)
         try values.encode(portTextValue, forKey: .portText)
         try values.encode(authentication, forKey: .authentication)
+        try values.encode(nickname, forKey: .nickname)
+        try values.encode(iconName, forKey: .iconName)
         try values.encode(password, forKey: .password)
         try values.encode(privateKeyPath, forKey: .privateKeyPath)
         try values.encode(passphrase, forKey: .passphrase)

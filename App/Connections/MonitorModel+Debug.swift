@@ -26,7 +26,10 @@ extension MonitorModel {
 
     private func makeSyntheticSessions(_ records: [ServerSnapshotRecord]) -> [ServerSession] {
         records.map { record in
-            var connection = Connection(host: record.snapshot?.host ?? record.server.name)
+            let host = record.snapshot?.host ?? record.server.name
+            let savedName = record.server.name.hasPrefix("Test · ") ? String(record.server.name.dropFirst("Test · ".count)) : record.server.name
+            let nickname = savedName == host ? "" : savedName
+            var connection = Connection(host: host, nickname: nickname, iconName: record.server.iconName)
             connection.id = record.server.id
             let session = ServerSession(connection: connection, snapshot: record.snapshot)
             session.isSynthetic = true
@@ -84,12 +87,31 @@ extension MonitorModel {
     }
 
     private func publishSyntheticServers() {
-        let records = sessions.filter(\.isSynthetic).map {
-            ServerSnapshotRecord(server: .init(id: $0.id, name: "Test · " + $0.connection.host), snapshot: $0.snapshot)
-        }
+        let records = syntheticRecords()
         do { try DebugSnapshotStore.write(records) }
         catch { self.error = error.localizedDescription }
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    @discardableResult
+    func publishSyntheticIdentityEdit() -> Bool {
+        do {
+            try DebugSnapshotStore.write(syntheticRecords())
+            WidgetCenter.shared.reloadAllTimelines()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    private func syntheticRecords() -> [ServerSnapshotRecord] {
+        sessions.filter(\.isSynthetic).map {
+            ServerSnapshotRecord(
+                server: .init(id: $0.id, name: "Test · " + $0.connection.displayName, iconName: $0.connection.iconName),
+                snapshot: $0.snapshot
+            )
+        }
     }
 
     private func varied(_ value: Double, by change: ClosedRange<Double>, within bounds: ClosedRange<Double>) -> Double {

@@ -8,277 +8,227 @@ struct ServersView: View {
     var previewLayout: ServerLayout? = nil
 
     private var layout: ServerLayout { previewLayout ?? storedLayout }
-    private var selectedServer: Binding<UUID?> {
-        Binding(
-            get: { model.selectedID },
-            set: { if let id = $0 { model.select(id) } }
-        )
-    }
+    private var fleetLayout: ServerLayout { layout == .grid ? .grid : .list }
     private var filteredSessions: [ServerSession] {
         model.sessions
-            .filter { search.isEmpty || $0.connection.displayName.localizedStandardContains(search) }
+            .filter { search.isEmpty || $0.connection.displayName.localizedStandardContains(search) || $0.connection.address.localizedStandardContains(search) }
             .sorted { $0.connection.displayName.localizedStandardCompare($1.connection.displayName) == .orderedAscending }
     }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 5)) { timeline in
-            VStack(spacing: 0) {
-                header
-                Divider()
-
-                if model.sessions.isEmpty {
+            Group {
+                if filteredSessions.isEmpty {
                     emptyState
-                } else if layout == .single {
-                    ServerDetailView(model: model, currentDate: timeline.date, showsServerPicker: true)
+                } else if fleetLayout == .list {
+                    listView(currentDate: timeline.date)
                 } else {
-                    NavigationSplitView {
-                        serverSidebar(currentDate: timeline.date)
-                            .navigationSplitViewColumnWidth(min: 245, ideal: 310, max: 390)
-                    } detail: {
-                        ServerDetailView(model: model, currentDate: timeline.date)
-                    }
-                    .navigationSplitViewStyle(.balanced)
+                    gridView(currentDate: timeline.date)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 660, minHeight: 440)
+        .navigationTitle("Servers")
+        .navigationSubtitle(serverCountLabel)
+        .searchable(text: $search, prompt: "Find a server")
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("Fleet layout", selection: Binding(
+                    get: { fleetLayout },
+                    set: { storedLayout = $0 }
+                )) {
+                    Label("List", systemImage: ServerLayout.list.symbol).tag(ServerLayout.list)
+                    Label("Grid", systemImage: ServerLayout.grid.symbol).tag(ServerLayout.grid)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                .help("Choose list or grid")
+            }
+
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button("Add server", systemImage: "plus", action: addServer)
+                    .help("Add a server")
+                actionsMenu
+            }
+        }
+        .frame(minWidth: 620, minHeight: 440)
     }
 
-    private var header: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Servers")
-                    .font(.title3.weight(.semibold))
-                Text(model.sessions.count == 1 ? "1 saved server" : "\(model.sessions.count) saved servers")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+    private var serverCountLabel: String {
+        model.sessions.count == 1 ? "1 server" : "\(model.sessions.count) servers"
+    }
+
+    private func listView(currentDate: Date) -> some View {
+        List {
+            ForEach(filteredSessions) { session in
+                NavigationLink(value: ServerDetailRoute(id: session.id)) {
+                    serverRow(session, currentDate: currentDate)
+                }
+                .buttonStyle(.plain)
+                .listRowSeparator(.visible)
+                .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
             }
+        }
+        .listStyle(.plain)
+    }
+
+    private func serverRow(_ session: ServerSession, currentDate: Date) -> some View {
+        HStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Image(systemName: session.connection.iconName)
+                        .foregroundStyle(session.id == model.selectedID ? Color.accentColor : Color.secondary)
+                    Text(session.connection.displayName)
+                        .font(.body.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if session.id == model.selectedID {
+                        Image(systemName: "menubar.rectangle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .help("Shown in the menu bar")
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(statusColor(for: session, at: currentDate))
+                        .frame(width: 6, height: 6)
+                        .accessibilityHidden(true)
+                    Text(statusText(for: session, at: currentDate))
+                        .font(.caption)
+                        .foregroundStyle(statusColor(for: session, at: currentDate))
+                    if let sampledAt = session.snapshot?.sampledAt {
+                        Text("·").foregroundStyle(.tertiary)
+                        Text(sampledAt, format: .dateTime.hour().minute())
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(minWidth: 170, maxWidth: 250, alignment: .leading)
 
             Spacer(minLength: 6)
 
-            Picker("View", selection: Binding(get: { layout }, set: { storedLayout = $0 })) {
-                ForEach(ServerLayout.allCases) { Text($0.rawValue).tag($0) }
+            HStack(spacing: 0) {
+                metricValue(.cpu, session: session, width: 78)
+                metricValue(.gpu, session: session, width: 78)
+                metricValue(.temperature, session: session, width: 92)
+                metricValue(.memory, session: session, width: 92)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 230)
-
-            Button("Add server", systemImage: "plus", action: addServer)
-                .buttonStyle(.glassProminent)
-
-            actionsMenu
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 13)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(serverAccessibilityLabel(session, currentDate: currentDate))
     }
 
-    private func serverSidebar(currentDate: Date) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(layout == .list ? "Server list" : "Server grid")
-                    .font(.headline)
-                Spacer()
-                Text("\(filteredSessions.count)")
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
+    private func gridView(currentDate: Date) -> some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 245), spacing: 14)], spacing: 14) {
+                ForEach(filteredSessions) { session in
+                    NavigationLink(value: ServerDetailRoute(id: session.id)) {
+                        serverTile(session, currentDate: currentDate)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 12)
+            .padding(20)
+        }
+    }
 
-            searchField
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-
-            if filteredSessions.isEmpty {
-                ContentUnavailableView.search(text: search)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if layout == .list {
-                List(selection: selectedServer) {
-                    ForEach(filteredSessions) { session in
-                        serverListRow(session, currentDate: currentDate)
-                            .tag(Optional(session.id))
-                            .listRowSeparator(.hidden)
+    private func serverTile(_ session: ServerSession, currentDate: Date) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: session.connection.iconName)
+                    .font(.title3)
+                    .foregroundStyle(session.id == model.selectedID ? Color.accentColor : Color.secondary)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(session.connection.displayName)
+                        .font(.body.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(statusColor(for: session, at: currentDate))
+                            .frame(width: 6, height: 6)
+                            .accessibilityHidden(true)
+                        Text(statusText(for: session, at: currentDate))
+                            .font(.caption)
+                            .foregroundStyle(statusColor(for: session, at: currentDate))
                     }
                 }
-                .listStyle(.sidebar)
-                .scrollContentBackground(.hidden)
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 126), spacing: 10)], spacing: 10) {
-                        ForEach(filteredSessions) { session in
-                            serverGridItem(session, currentDate: currentDate)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                Spacer(minLength: 0)
+                if session.id == model.selectedID {
+                    Image(systemName: "menubar.rectangle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .help("Shown in the menu bar")
                 }
             }
 
             Divider()
 
-            Label("Selection appears in the menu bar", systemImage: "menubar.rectangle")
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 12) {
+                metricValue(.cpu, session: session)
+                metricValue(.gpu, session: session)
+                metricValue(.temperature, session: session)
+                metricValue(.memory, session: session)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: .rect(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.secondary.opacity(0.16))
+        }
+        .contentShape(.rect(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(serverAccessibilityLabel(session, currentDate: currentDate))
+    }
+
+    @ViewBuilder
+    private func metricValue(_ metric: MonitorMetric, session: ServerSession, width: CGFloat? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(metric == .temperature ? "Temp" : metric.rawValue)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
+            Text(metric.formatted(session.snapshot))
+                .font(.body.monospacedDigit().weight(.medium))
+                .foregroundStyle(metric.warning(session.snapshot) ? PiTheme.warning : PiTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
-        .background(Color(nsColor: .underPageBackgroundColor))
-    }
-
-    private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            TextField("Find a server", text: $search)
-                .textFieldStyle(.plain)
-                .accessibilityLabel("Find a server")
-            if !search.isEmpty {
-                Button("Clear search", systemImage: "xmark.circle.fill") { search = "" }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.plain)
-                    .help("Clear search")
-            }
-        }
-        .padding(8)
-        .background(.background, in: .rect(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.secondary.opacity(0.18))
-        }
-    }
-
-    private func serverListRow(_ session: ServerSession, currentDate: Date) -> some View {
-        let isSelected = session.id == model.selectedID
-        let status = statusText(for: session, at: currentDate)
-
-        return HStack(spacing: 10) {
-            Image(systemName: "server.rack")
-                .font(.title3)
-                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                .frame(width: 22)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(session.connection.displayName)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(statusColor(for: session, at: currentDate))
-                        .frame(width: 6, height: 6)
-                    Text(status)
-                        .font(.caption)
-                        .foregroundStyle(session.error == nil ? Color.secondary : PiTheme.warning)
-                }
-            }
-
-            Spacer(minLength: 6)
-
-            Text(MonitorMetric.cpu.formatted(session.snapshot))
-                .font(.body.monospacedDigit().weight(.semibold))
-                .foregroundStyle(MonitorMetric.cpu.warning(session.snapshot) ? PiTheme.warning : PiTheme.ink)
-                .frame(minWidth: 46, alignment: .trailing)
-        }
-        .padding(.vertical, 7)
-        .contentShape(.rect)
+        .frame(width: width, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(session.connection.displayName), \(status), CPU \(MonitorMetric.cpu.formatted(session.snapshot))")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private func serverGridItem(_ session: ServerSession, currentDate: Date) -> some View {
-        let isSelected = session.id == model.selectedID
-        let temperature = MonitorMetric.temperature.formatted(session.snapshot)
-        let status = statusText(for: session, at: currentDate)
-
-        return Button { model.select(session.id) } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "server.rack")
-                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                    if isSelected {
-                        Spacer(minLength: 0)
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.tint)
-                    }
-                }
-
-                Text(session.connection.displayName)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack(alignment: .firstTextBaseline) {
-                    Text("CPU")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 4)
-                    Text(MonitorMetric.cpu.formatted(session.snapshot))
-                        .font(.callout.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(MonitorMetric.cpu.warning(session.snapshot) ? PiTheme.warning : PiTheme.ink)
-                }
-
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Temp")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 4)
-                    Text(temperature)
-                        .font(.caption.monospacedDigit().weight(.medium))
-                        .foregroundStyle(MonitorMetric.temperature.warning(session.snapshot) ? PiTheme.warning : PiTheme.ink)
-                }
-
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(statusColor(for: session, at: currentDate))
-                        .frame(width: 6, height: 6)
-                    Text(status)
-                        .font(.caption)
-                        .foregroundStyle(session.error == nil ? Color.secondary : PiTheme.warning)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-            }
-            .padding(11)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 10))
-            .overlay {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.accentColor, lineWidth: 1.5)
-                }
-            }
-            .contentShape(.rect(cornerRadius: 10))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(session.connection.displayName), \(status), CPU \(MonitorMetric.cpu.formatted(session.snapshot)), temperature \(temperature)")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var emptyState: some View {
-        ContentUnavailableView {
-            Label("No servers yet", systemImage: "server.rack")
-        } description: {
-            Text("Add an SSH connection to view its readings alongside your other servers.")
-        } actions: {
-            Button("Add server", action: addServer)
-            #if DEBUG
-            Button("Add 8 test servers") { model.addSyntheticServers() }
-            #endif
+        Group {
+            if search.isEmpty {
+                ContentUnavailableView {
+                    Label("No servers yet", systemImage: "server.rack")
+                } description: {
+                    Text("Add an SSH connection to view its readings.")
+                } actions: {
+                    Button("Add server", action: addServer)
+                        .buttonStyle(.glassProminent)
+                    #if DEBUG
+                    Button("Add test servers") { model.addSyntheticServers() }
+                    #endif
+                }
+            } else {
+                ContentUnavailableView.search(text: search)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var actionsMenu: some View {
-        Menu("More", systemImage: "ellipsis") {
-            Button("Settings & widgets…") {
-                openWindow(id: "settings")
-                NSApp.activate()
-            }
-
+        Menu("More server actions", systemImage: "ellipsis") {
             if let session = model.selectedSession {
                 Button("Refresh selected server") { Task { await model.refreshServer(id: session.id) } }
                     .disabled(session.isRefreshing)
@@ -307,8 +257,8 @@ struct ServersView: View {
         }
         .labelStyle(.iconOnly)
         .menuStyle(.borderlessButton)
-        .fixedSize()
-        .help("More actions")
+        .menuIndicator(.hidden)
+        .help("More server actions")
     }
 
     private func addServer() {
@@ -330,5 +280,9 @@ struct ServersView: View {
         case "Disconnected", "Last reading", "High temperature": PiTheme.warning
         default: .secondary
         }
+    }
+
+    private func serverAccessibilityLabel(_ session: ServerSession, currentDate: Date) -> String {
+        "\(session.connection.displayName), \(statusText(for: session, at: currentDate)), CPU \(MonitorMetric.cpu.formatted(session.snapshot)), GPU \(MonitorMetric.gpu.formatted(session.snapshot)), temperature \(MonitorMetric.temperature.formatted(session.snapshot)), memory \(MonitorMetric.memory.formatted(session.snapshot))"
     }
 }

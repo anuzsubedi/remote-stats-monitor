@@ -7,13 +7,15 @@ struct ServerWidgetEntity: AppEntity, Hashable, Sendable {
 
     let id: UUID
     let name: String
+    let iconName: String
 
     var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(name)")
+        DisplayRepresentation(title: "\(name)", image: .init(systemName: iconName, isTemplate: true))
     }
 
     init(_ descriptor: ServerDescriptor) {
         id = descriptor.id
         name = descriptor.name
+        iconName = descriptor.iconName
     }
 }

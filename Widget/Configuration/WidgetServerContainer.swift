@@ -14,8 +14,16 @@ struct WidgetServerContainer<Content: View>: View {
         VStack(alignment: .leading, spacing: family == .systemSmall ? 8 : 10) {
             HStack(spacing: 4) {
                 if entry.canSwitchServers { arrow("previous", symbol: "chevron.left", label: "Previous server") }
-                Text(name).lineLimit(1).truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: entry.canSwitchServers ? .center : .leading)
+                Label {
+                    Text(name).lineLimit(1).truncationMode(.middle)
+                } icon: {
+                    Image(systemName: entry.server?.iconName ?? "server.rack")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+                .labelStyle(.titleAndIcon)
+                .frame(maxWidth: .infinity, alignment: entry.canSwitchServers ? .center : .leading)
                 if entry.canSwitchServers { arrow("next", symbol: "chevron.right", label: "Next server") }
             }
             .font(.headline.weight(.semibold))

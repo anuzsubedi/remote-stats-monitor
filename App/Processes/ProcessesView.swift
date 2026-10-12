@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProcessesView: View {
     @Bindable var model: MonitorModel
+    var embedded = false
     @State private var search = ""
 
     private var filteredProcesses: [RemoteProcess] {
@@ -13,8 +14,10 @@ struct ProcessesView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 16) {
-                Text("Processes")
-                    .font(.largeTitle.weight(.bold))
+                if !embedded {
+                    Text("Processes")
+                        .font(.largeTitle.weight(.bold))
+                }
 
                 Spacer(minLength: 16)
 
@@ -103,6 +106,6 @@ struct ProcessesView: View {
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(minWidth: 600, minHeight: 440)
+        .frame(minWidth: embedded ? 0 : 600, minHeight: 440)
     }
 }

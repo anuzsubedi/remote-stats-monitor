@@ -2,22 +2,25 @@ import SwiftUI
 
 struct ConnectionView: View {
     @Bindable var model: MonitorModel
+    var onAddTestServers: (() -> Void)? = nil
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var showForgetConfirmation = false
 
     private var isEditing: Bool { model.sessions.contains { $0.id == model.draft.id } }
 
+    private var isSynthetic: Bool { model.sessions.first { $0.id == model.draft.id }?.isSynthetic == true }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Image(systemName: "server.rack")
+                Image(systemName: model.draft.iconName)
                     .font(.title2)
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(isEditing ? "Connection" : "Add server")
+                    Text(isEditing ? "Edit server" : "Add server")
                         .font(.title2.weight(.semibold))
-                    Text("Connect with an SSH address or saved alias.")
+                    Text(isSynthetic ? "Customize this test server." : "Connect with an SSH address or saved alias.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -28,28 +31,35 @@ struct ConnectionView: View {
             .padding(.bottom, 8)
 
             Form {
-                Section {
-                    ConnectionFieldsView(connection: $model.draft, chooseKey: chooseKey)
-                } header: {
-                    Text("SSH connection")
-                } footer: {
-                    Text("Leave the port blank to use your SSH config or port 22.")
+                Section("Identity") {
+                    ServerIdentityFields(connection: $model.draft)
                 }
 
-                Section {
-                    Toggle("Collect GPU usage", isOn: $model.draft.collectGPU)
-                } header: {
-                    Text("Monitoring")
-                } footer: {
-                    Text("Turn this off to skip GPU commands and counter scans.")
-                }
+                if !isSynthetic {
+                    Section {
+                        ConnectionFieldsView(connection: $model.draft, chooseKey: chooseKey)
+                    } header: {
+                        Text("SSH connection")
+                    } footer: {
+                        Text("Leave the port blank to use your SSH config or port 22.")
+                    }
 
-                Section {
-                    Label("Passwords and key passphrases are saved in Keychain.", systemImage: "key.horizontal")
-                } header: {
-                    Text("Credentials")
-                } footer: {
-                    Text("Private keys stay in their original files.")
+                    Section {
+                        Toggle("Collect GPU usage", isOn: $model.draft.collectGPU)
+                    } header: {
+                        Text("Monitoring")
+                    } footer: {
+                        Text("Turn this off to skip GPU commands and counter scans.")
+                    }
+
+                    Section {
+                        Label("Passwords and key passphrases are saved in Keychain.", systemImage: "key.horizontal")
+                    } header: {
+                        Text("Credentials")
+                    } footer: {
+                        Text("Private keys stay in their original files.")
+                    }
+
                 }
 
                 if let error = model.error ?? (model.selectedSession?.id == model.draft.id ? model.selectedSession?.error : nil) {
@@ -61,7 +71,7 @@ struct ConnectionView: View {
                     }
                 }
 
-                if isEditing {
+                if isEditing && !isSynthetic {
                     Section {
                         Button("Forget server", role: .destructive) {
                             showForgetConfirmation = true
@@ -71,7 +81,7 @@ struct ConnectionView: View {
 
                 #if DEBUG
                 Section("Developer tools") {
-                    DebugServersView(model: model)
+                    DebugServersView(model: model, onAdded: onAddTestServers)
                 }
                 #endif
             }
@@ -89,7 +99,7 @@ struct ConnectionView: View {
                 Spacer()
                 Button("Cancel") { dismissWindow(id: "connection") }
                     .keyboardShortcut(.cancelAction)
-                Button("Connect") { Task { await model.beginConnection() } }
+                Button(isEditing ? "Save changes" : "Connect") { Task { await model.beginConnection() } }
                     .buttonStyle(.glassProminent)
                     .keyboardShortcut(.defaultAction)
             }

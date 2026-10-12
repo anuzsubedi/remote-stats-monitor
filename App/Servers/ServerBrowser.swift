@@ -5,12 +5,13 @@ struct ServerBrowser: View {
     let layout: ServerLayout
     var search = ""
     var compact = false
+    var onShowProcesses: (() -> Void)? = nil
 
     @Environment(\.openWindow) private var openWindow
 
     private var sessions: [ServerSession] {
         model.sessions
-            .filter { search.isEmpty || $0.connection.displayName.localizedStandardContains(search) }
+            .filter { search.isEmpty || $0.connection.displayName.localizedStandardContains(search) || $0.connection.address.localizedStandardContains(search) }
             .sorted { $0.connection.displayName.localizedStandardCompare($1.connection.displayName) == .orderedAscending }
     }
 
@@ -18,7 +19,13 @@ struct ServerBrowser: View {
         TimelineView(.periodic(from: .now, by: 5)) { timeline in
             switch layout {
             case .single:
-                ServerDetailView(model: model, currentDate: timeline.date, compact: compact, showsServerPicker: true)
+                ServerDetailView(
+                    model: model,
+                    currentDate: timeline.date,
+                    compact: compact,
+                    showsServerPicker: true,
+                    onShowProcesses: showProcesses
+                )
             case .list:
                 listView(currentDate: timeline.date)
             case .grid:
@@ -57,7 +64,7 @@ struct ServerBrowser: View {
         return Button { model.select(session.id) } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 12) {
-                    Image(systemName: "server.rack")
+                    Image(systemName: session.connection.iconName)
                         .font(.title3)
                         .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                         .frame(width: 22)
@@ -120,7 +127,11 @@ struct ServerBrowser: View {
                             Button { model.select(session.id) } label: {
                                 ServerTileView(
                                     record: .init(
-                                        server: .init(id: session.id, name: session.connection.displayName),
+                                        server: .init(
+                                            id: session.id,
+                                            name: session.connection.displayName,
+                                            iconName: session.connection.iconName
+                                        ),
                                         snapshot: session.snapshot
                                     ),
                                     currentDate: currentDate
@@ -139,8 +150,7 @@ struct ServerBrowser: View {
                                 Spacer()
                                 Button("Processes") {
                                     model.select(session.id)
-                                    openWindow(id: "processes")
-                                    NSApp.activate()
+                                    showProcesses()
                                 }
                                 .help("Open this server's processes")
                             }
@@ -165,5 +175,14 @@ struct ServerBrowser: View {
             systemImage: "server.rack",
             description: Text(search.isEmpty ? "Add an SSH connection to start monitoring." : "Try another server name.")
         )
+    }
+
+    private func showProcesses() {
+        if let onShowProcesses {
+            onShowProcesses()
+        } else {
+            openWindow(id: "processes")
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }
