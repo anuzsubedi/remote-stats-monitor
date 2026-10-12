@@ -16,7 +16,7 @@ Values use monospaced digits and remain on one line. Missing readings use a dash
 
 ## App icon
 
-`AppIcon.icon` is the editable Icon Composer source. It contains a blue background, a three-bay server enclosure, and a separate mint telemetry layer. Xcode compiles it directly. Do not recreate a competing `AppIcon.appiconset`.
+`AppIcon.icon` is the editable Icon Composer source. It uses a neutral off-white background and a single charcoal telemetry glyph. Keep it monochrome and minimal, with no rack details or colored background. Xcode compiles it directly. Do not recreate a competing `AppIcon.appiconset`.
 
 ## Verification
 
