@@ -14,10 +14,16 @@ struct ServerListRowView: View {
 
         HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(record.server.name)
-                    .font(compact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                HStack(spacing: 4) {
+                    Image(systemName: record.server.iconName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    Text(record.server.name)
+                        .font(compact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
 
                 Text(freshness(snapshot))
                     .font(.caption)

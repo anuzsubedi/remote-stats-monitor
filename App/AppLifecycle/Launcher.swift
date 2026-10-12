@@ -47,6 +47,9 @@ import WidgetKit
             catch { FileHandle.standardError.write(Data(error.localizedDescription.utf8)); exit(1) }
             return
         }
+        #if DEBUG
+        SceneCapture.prepareIfRequested()
+        #endif
         RemoteStatsMonitorApp.main()
     }
 }

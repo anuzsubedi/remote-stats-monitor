@@ -12,6 +12,10 @@ struct WidgetFleetTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 4) {
+                Image(systemName: record.server.iconName)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 Text(record.server.name)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)

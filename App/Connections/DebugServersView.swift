@@ -3,6 +3,7 @@ import SwiftUI
 
 struct DebugServersView: View {
     @Bindable var model: MonitorModel
+    var onAdded: (() -> Void)? = nil
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
 
@@ -15,7 +16,11 @@ struct DebugServersView: View {
                 Button("Add test servers", systemImage: "plus") {
                     model.addSyntheticServers()
                     dismissWindow(id: "connection")
-                    openWindow(id: "processes")
+                    if let onAdded {
+                        onAdded()
+                    } else {
+                        openWindow(id: "processes")
+                    }
                 }
                 .disabled(model.hasSyntheticServers)
 

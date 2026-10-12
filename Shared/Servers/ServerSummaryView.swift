@@ -3,6 +3,7 @@ import SwiftUI
 struct ServerSummaryView: View {
     let snapshot: MonitorSnapshot?
     var name: String?
+    var iconName = "server.rack"
     var currentDate = Date.now
     var compact = false
     var showsHeader = true
@@ -18,7 +19,7 @@ struct ServerSummaryView: View {
                         .font(.caption).foregroundStyle(snapshot?.connectionError != nil || snapshot?.isStale(at: currentDate) == true ? PiTheme.warning : PiTheme.secondary)
                 }
                 Spacer(minLength: 4)
-                Image(systemName: "server.rack").font(compact ? .title3 : .title).foregroundStyle(.secondary)
+                Image(systemName: iconName).font(compact ? .title3 : .title).foregroundStyle(.secondary)
             }
             }
             HStack(alignment: .firstTextBaseline, spacing: 8) {

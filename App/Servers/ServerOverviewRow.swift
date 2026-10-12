@@ -17,7 +17,7 @@ struct ServerOverviewRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Image(systemName: "server.rack").font(.title2).foregroundStyle(.secondary)
+                Image(systemName: session.connection.iconName).font(.title2).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 4) {
                     Button(action: select) {
                         HStack(spacing: 7) {

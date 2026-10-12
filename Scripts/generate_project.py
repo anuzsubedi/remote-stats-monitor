@@ -94,8 +94,10 @@ widget_core = [
     "Core/Persistence/DebugSnapshotStore.swift",
     "Core/Debug/SyntheticServers.swift",
 ]
+# Widget button intents need to be available to both the widget extension and its host app.
+widget_app_intents = ["Widget/Configuration/WidgetServerAction.swift"]
 sources = {
-    "RemoteStatsMonitor": core + shared + app,
+    "RemoteStatsMonitor": core + shared + app + widget_app_intents,
     "RemoteStatsMonitorWidget": shared + widget_core + widget,
 }
 for target in products:

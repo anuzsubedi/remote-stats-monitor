@@ -5,6 +5,8 @@ struct ServerDetailView: View {
     let currentDate: Date
     var compact = false
     var showsServerPicker = false
+    var navigationChrome = false
+    var onShowProcesses: (() -> Void)? = nil
 
     @Environment(\.openWindow) private var openWindow
 
@@ -32,10 +34,24 @@ struct ServerDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider()
+        Group {
+            if navigationChrome {
+                detailContent
+            } else {
+                VStack(spacing: 0) {
+                    header
+                    Divider()
+                    detailContent
+                }
+            }
+        }
+        .navigationTitle(navigationChrome ? serverName : "")
+        .navigationSubtitle(navigationChrome ? navigationSubtitle : "")
+        .toolbar { navigationToolbar }
+    }
 
+    private var detailContent: some View {
+        Group {
             if model.sessions.isEmpty {
                 ContentUnavailableView(
                     "No servers yet",
@@ -118,15 +134,8 @@ struct ServerDetailView: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
                 if showsServerPicker && !model.sessions.isEmpty {
-                    Picker("Server", selection: selection) {
-                        ForEach(sortedSessions) { session in
-                            Text(session.connection.displayName).tag(Optional(session.id))
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .font(.title3.weight(.semibold))
-                    .accessibilityLabel("Selected server")
+                    serverPicker
+                        .font(.title3.weight(.semibold))
                 } else {
                     Text(serverName)
                         .font(compact ? .title3.weight(.semibold) : .title2.weight(.semibold))
@@ -154,29 +163,12 @@ struct ServerDetailView: View {
             Spacer(minLength: 4)
 
             if let session {
-                Button("Processes", systemImage: "list.bullet.rectangle") {
-                    openWindow(id: "processes")
-                    NSApp.activate()
-                }
-                .labelStyle(.iconOnly)
-                .help("Open processes")
-                .disabled(session.snapshot == nil)
+                Button("Processes", systemImage: "list.bullet.rectangle", action: showProcesses)
+                    .labelStyle(.iconOnly)
+                    .help("Open processes")
+                    .disabled(session.snapshot == nil)
 
-                Menu("Connection", systemImage: "ellipsis") {
-                    Button("Refresh readings") { Task { await model.refreshServer(id: session.id) } }
-                        .disabled(session.isRefreshing)
-                    if !session.isSynthetic {
-                        Button("Edit connection…") {
-                            model.editSelected()
-                            openWindow(id: "connection")
-                            NSApp.activate()
-                        }
-                    }
-                }
-                .labelStyle(.iconOnly)
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .help("Connection actions")
+                connectionActions(for: session)
             }
         }
         .padding(.horizontal, compact ? 16 : 24)
@@ -187,6 +179,78 @@ struct ServerDetailView: View {
         model.sessions.sorted {
             $0.connection.displayName.localizedStandardCompare($1.connection.displayName) == .orderedAscending
         }
+    }
+
+    private var navigationSubtitle: String {
+        guard let sampledAt = snapshot?.sampledAt else { return status }
+        return "\(status) · Updated \(sampledAt.formatted(.dateTime.hour().minute()))"
+    }
+
+    private var serverPicker: some View {
+        Menu {
+            ForEach(sortedSessions) { session in
+                Button {
+                    model.select(session.id)
+                } label: {
+                    Label(session.connection.displayName, systemImage: session.id == model.selectedID ? "checkmark" : session.connection.iconName)
+                }
+            }
+        } label: {
+            Label(serverName, systemImage: session?.connection.iconName ?? "server.rack")
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .menuIndicator(.hidden)
+        .menuStyle(.borderlessButton)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityLabel("Switch server, \(serverName)")
+        .help("Switch server")
+    }
+
+    @ToolbarContentBuilder
+    private var navigationToolbar: some ToolbarContent {
+        if navigationChrome {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if showsServerPicker && model.sessions.count > 1 {
+                    Menu {
+                        ForEach(sortedSessions) { item in
+                            Button { model.select(item.id) } label: {
+                                Label(item.connection.displayName, systemImage: item.id == model.selectedID ? "checkmark" : item.connection.iconName)
+                            }
+                        }
+                    } label: {
+                        Label("Switch server", systemImage: "arrow.left.arrow.right")
+                    }
+                    .menuIndicator(.hidden)
+                    .help("Switch server")
+                }
+                if let session {
+                    connectionActions(for: session)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func connectionActions(for session: ServerSession) -> some View {
+        Button {
+            Task { await model.refreshServer(id: session.id) }
+        } label: {
+            Label("Refresh", systemImage: "arrow.clockwise")
+        }
+        .labelStyle(.iconOnly)
+        .disabled(session.isRefreshing)
+        .help("Refresh readings")
+
+        Button {
+            model.editSelected()
+            openWindow(id: "connection")
+            NSApp.activate()
+        } label: {
+            Label("Edit server", systemImage: "pencil")
+        }
+        .labelStyle(.iconOnly)
+        .help("Edit nickname, icon, and connection")
     }
 
     private func supportingReading(title: String, value: String, symbol: String) -> some View {
@@ -212,5 +276,14 @@ struct ServerDetailView: View {
         if days > 0 { return "\(days)d \(hours)h" }
         if hours > 0 { return "\(hours)h \(remainingMinutes)m" }
         return "\(remainingMinutes)m"
+    }
+
+    private func showProcesses() {
+        if let onShowProcesses {
+            onShowProcesses()
+        } else {
+            openWindow(id: "processes")
+            NSApp.activate()
+        }
     }
 }

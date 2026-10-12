@@ -11,14 +11,22 @@ import Foundation
         try require(connection.validationError == nil && !connection.usesExplicitPort, "blank port uses SSH config")
 
         try require(!connection.collectGPU, "GPU collection defaults off")
+        try require(connection.nickname.isEmpty && connection.iconName == "server.rack", "server identity defaults to address and rack icon")
         let legacyGPU = Data(#"{"host":"pi.local"}"#.utf8)
-        try require(try !JSONDecoder().decode(Connection.self, from: legacyGPU).collectGPU, "existing connections default GPU off")
+        let migratedConnection = try JSONDecoder().decode(Connection.self, from: legacyGPU)
+        try require(!migratedConnection.collectGPU, "existing connections default GPU off")
+        try require(migratedConnection.nickname.isEmpty && migratedConnection.iconName == "server.rack", "existing connections default identity fields")
         connection.collectGPU = true
+        connection.nickname = "  Office Pi  "
+        connection.iconName = "desktopcomputer"
         try require(try JSONDecoder().decode(Connection.self, from: JSONEncoder().encode(connection)).collectGPU, "GPU opt-in persists")
 
         var duplicate = connection
         duplicate.id = UUID()
         try require(connection.hasSameSettings(as: duplicate), "identical credentials ignore UUID for migration")
+        duplicate.nickname = "Different name"
+        duplicate.iconName = "externaldrive"
+        try require(connection.hasSameSettings(as: duplicate), "identity metadata does not change credential deduplication")
         duplicate.address = "  pi@PI5.local  "
         try require(connection.hasSameSettings(as: duplicate), "equivalent address spelling merges without comparing raw input")
         duplicate.password = "different-fixture"
@@ -34,7 +42,9 @@ import Foundation
         connection.address = "admin@server.local:2202"
         try require(connection.username == "admin" && connection.host == "server.local" && connection.port == 2202,
                     "address parses username, hostname, and optional port")
-        try require(connection.displayName == "admin@server.local:2202", "display label distinguishes user and port")
+        try require(connection.displayName == "Office Pi", "display label trims and prefers nickname")
+        connection.nickname = "  \n "
+        try require(connection.displayName == "admin@server.local:2202", "blank nickname falls back to SSH address")
         connection.address = "monitor@another.local"
         try require(connection.portText == "2202" && connection.address == "monitor@another.local:2202",
                     "editing the address preserves the separate explicit port")
@@ -66,6 +76,6 @@ import Foundation
                     "blank address fields leave SSH config values available")
         try require(SSHArguments.quotedPath("a\"b\\c") == "\"a\\\"b\\\\c\"", "escape paths in ssh_config options")
 
-        print("Connection checks passed: default auth, address parsing, ports, IPv6, migration IDs, Codable, and OpenSSH config parsing.")
+        print("Connection checks passed: default auth, identity migration and persistence, address parsing, ports, IPv6, migration IDs, Codable, and OpenSSH config parsing.")
     }
 }

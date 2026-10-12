@@ -8,7 +8,7 @@ struct ServerTileView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 5 : 14) {
             HStack(spacing: 5) {
-                Image(systemName: "server.rack").foregroundStyle(.secondary)
+                Image(systemName: record.server.iconName).foregroundStyle(.secondary)
                 Text(record.server.name).font(compact ? .caption.weight(.semibold) : .headline)
                     .lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 0)

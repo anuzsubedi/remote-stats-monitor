@@ -32,7 +32,7 @@ Use SF system styles for UI. Server names lead; status and timestamps sit beneat
 
 ## Layout
 
-The server window pairs a searchable list or grid with the selected server's detail. Single-server mode focuses on that detail. The menu defaults to the selected server and exposes Server, List, and Grid layouts. New connections become selected automatically.
+The main window uses one scene-level navigation split view with Overview, Servers, Processes, and Settings destinations. Overview shows the selected server. Servers uses the full content area for a searchable list or grid; opening a server pushes its detail with a native Back action. Native toolbars own the top safe area, without nested split views below custom headers. The menu defaults to the selected server and exposes Server, List, and Grid layouts. New connections become selected automatically.
 
 The selected detail uses a two-column metric layout, supporting capacity totals, GPU availability, uptime, and processes. Menu fleet rows retain CPU, GPU, temperature, and memory readings. Window content scrolls as needed; primary connection actions stay outside the scrolling form.
 
@@ -48,7 +48,9 @@ Use native button shapes. Rounded selection regions and data panels use modest c
 
 ## Components
 
-- Server headers expose state and context before metrics. Connection actions remain available alongside the selected server.
+- Server headers expose state and context before metrics. Use direct Refresh and Edit actions; server switching uses a compact, labeled menu without a duplicate disclosure indicator.
+- Server nicknames are optional and fall back to the SSH address. A curated SF Symbols grid selects the server icon. Preserve identity across app and widget surfaces without changing the SSH destination.
+- Settings contain actionable preferences; omit static catalogs of widget types.
 - Single-server widgets use only previous and next arrows around the server name. System Edit Widget selects a configured server; do not add an inline selector.
 - Forms use grouped sections, explicit field labels, inline errors, and native authentication controls. GPU collection remains optional and off by default.
 - Processes use aligned numeric columns and clear empty/search states.

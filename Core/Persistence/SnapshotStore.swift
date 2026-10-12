@@ -3,10 +3,23 @@ import Foundation
 struct ServerDescriptor: Codable, Hashable, Identifiable, Sendable {
     let id: UUID
     var name: String
+    var iconName: String
 
-    init(id: UUID, name: String) {
+    init(id: UUID, name: String, iconName: String = "server.rack") {
         self.id = id
         self.name = name
+        self.iconName = iconName
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, iconName
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        name = try values.decode(String.self, forKey: .name)
+        iconName = try values.decodeIfPresent(String.self, forKey: .iconName) ?? "server.rack"
     }
 }
 
@@ -57,12 +70,12 @@ enum SnapshotStore {
         try defaultStore().reconcile(servers, aliases: aliases)
     }
 
-    static func upsertServer(id: UUID, name: String) throws {
-        try defaultStore().upsertServer(id: id, name: name)
+    static func upsertServer(id: UUID, name: String, iconName: String = "server.rack") throws {
+        try defaultStore().upsertServer(id: id, name: name, iconName: iconName)
     }
 
-    static func write(_ snapshot: MonitorSnapshot, for id: UUID, name: String) throws {
-        try defaultStore().write(snapshot, for: id, name: name)
+    static func write(_ snapshot: MonitorSnapshot, for id: UUID, name: String, iconName: String = "server.rack") throws {
+        try defaultStore().write(snapshot, for: id, name: name, iconName: iconName)
     }
 
     static func read(for id: UUID) -> MonitorSnapshot? {
@@ -173,23 +186,25 @@ enum SnapshotStore {
         }
 
         /// Adds or updates a server's widget label before its first successful collection.
-        func upsertServer(id: UUID, name: String) throws {
+        func upsertServer(id: UUID, name: String, iconName: String = "server.rack") throws {
             try updateState { state in
                 let key = id.uuidString
-                var record = state.servers[key] ?? StoredServer(server: .init(id: id, name: name), snapshot: nil, lastSelectedAt: nil)
+                var record = state.servers[key] ?? StoredServer(server: .init(id: id, name: name, iconName: iconName), snapshot: nil, lastSelectedAt: nil)
                 record.server.name = Self.normalizedName(name)
+                record.server.iconName = iconName
                 state.servers[key] = record
             }
         }
 
         /// Stores one server's latest reading without changing the app's current server selection.
-        func write(_ snapshot: MonitorSnapshot, for id: UUID, name: String) throws {
+        func write(_ snapshot: MonitorSnapshot, for id: UUID, name: String, iconName: String = "server.rack") throws {
             // Preview fixtures must never become live widget data.
             guard !snapshot.isSample else { return }
             try updateState { state in
                 let key = id.uuidString
-                var record = state.servers[key] ?? StoredServer(server: .init(id: id, name: name), snapshot: nil, lastSelectedAt: nil)
+                var record = state.servers[key] ?? StoredServer(server: .init(id: id, name: name, iconName: iconName), snapshot: nil, lastSelectedAt: nil)
                 record.server.name = Self.normalizedName(name)
+                record.server.iconName = iconName
                 record.snapshot = snapshot
                 state.servers[key] = record
             }

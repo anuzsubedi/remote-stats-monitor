@@ -21,6 +21,10 @@ struct WidgetFleetServerRow: View {
         HStack(spacing: 4) {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
+                    Image(systemName: record.server.iconName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                     Text(record.server.name)
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)

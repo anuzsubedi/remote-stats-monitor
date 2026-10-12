@@ -35,16 +35,43 @@ final class MonitorModel {
             let loaded = try KeychainStore.loadAll()
             var unique: [Connection] = []
             var aliases: [UUID: UUID] = [:]
+            var mergedIdentityIDs = Set<UUID>()
+            var identityContributors: [UUID: Set<UUID>] = [:]
             for connection in loaded {
-                if let existing = unique.first(where: { $0.hasSameSettings(as: connection) }) {
+                if let index = unique.firstIndex(where: { $0.hasSameSettings(as: connection) }) {
+                    var existing = unique[index]
                     aliases[connection.id] = existing.id
+                    let existingNickname = existing.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let duplicateNickname = connection.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+                    var mergedIdentity = false
+                    if existingNickname.isEmpty && !duplicateNickname.isEmpty {
+                        existing.nickname = connection.nickname
+                        mergedIdentity = true
+                    }
+                    if existing.iconName == "server.rack" && connection.iconName != "server.rack" {
+                        existing.iconName = connection.iconName
+                        mergedIdentity = true
+                    }
+                    if mergedIdentity {
+                        unique[index] = existing
+                        mergedIdentityIDs.insert(existing.id)
+                        identityContributors[existing.id, default: []].insert(connection.id)
+                    }
                 } else { unique.append(connection) }
+            }
+            var identityPersistenceFailures = Set<UUID>()
+            for connection in unique where mergedIdentityIDs.contains(connection.id) {
+                do { try KeychainStore.save(connection) }
+                catch {
+                    self.error = "A duplicate server's saved identity could not be merged. " + error.localizedDescription
+                    identityPersistenceFailures.formUnion(identityContributors[connection.id] ?? [])
+                }
             }
             // Update redirects before deleting redundant credentials; retries are safe.
             sessions = unique.map { ServerSession(connection: $0) }
             do {
-                try SnapshotStore.reconcile(unique.map { .init(id: $0.id, name: $0.displayName) }, aliases: aliases)
-                for duplicate in aliases.keys {
+                try SnapshotStore.reconcile(unique.map { .init(id: $0.id, name: $0.displayName, iconName: $0.iconName) }, aliases: aliases)
+                for duplicate in aliases.keys where !identityPersistenceFailures.contains(duplicate) {
                     do { try KeychainStore.delete(id: duplicate) }
                     catch { self.error = "A redundant saved login could not be removed. " + error.localizedDescription }
                 }
@@ -55,7 +82,7 @@ final class MonitorModel {
             if let selectedID { UserDefaults.standard.set(selectedID.uuidString, forKey: "selectedServer") }
             for session in sessions {
                 session.snapshot = SnapshotStore.read(for: session.id)
-                do { try SnapshotStore.upsertServer(id: session.id, name: session.connection.displayName) }
+                do { try SnapshotStore.upsertServer(id: session.id, name: session.connection.displayName, iconName: session.connection.iconName) }
                 catch { self.error = error.localizedDescription }
                 startPolling(session)
             }
@@ -74,14 +101,47 @@ final class MonitorModel {
         publishSelection()
     }
 
-    func editSelected() { draft = selectedSession?.isSynthetic == true ? Connection() : connection ?? Connection(); error = nil }
+    func editSelected() { draft = connection ?? Connection(); error = nil }
     func addServer() { draft = Connection(); error = nil }
 
     func beginConnection() async {
         guard !isConnecting else { return }
-        if let validation = draft.validationError { error = validation; return }
         isConnecting = true
         error = nil
+#if DEBUG
+        if let synthetic = sessions.first(where: { $0.id == draft.id && $0.isSynthetic }) {
+            guard synthetic.connection.hasSameSettings(as: draft) else {
+                error = "Test servers only support nickname and icon edits."
+                isConnecting = false
+                return
+            }
+            synthetic.connection = draft
+            if publishSyntheticIdentityEdit() { successfulConnectionCount += 1 }
+            isConnecting = false
+            return
+        }
+#endif
+        if let existing = sessions.first(where: { !$0.isSynthetic && $0.id == draft.id }),
+           existing.connection.hasSameSettings(as: draft) {
+            do {
+                if existing.connection.nickname != draft.nickname || existing.connection.iconName != draft.iconName {
+                    try KeychainStore.save(draft)
+                    existing.connection = draft
+                }
+                try SnapshotStore.upsertServer(id: existing.id, name: draft.displayName, iconName: draft.iconName)
+                WidgetCenter.shared.reloadAllTimelines()
+                successfulConnectionCount += 1
+            } catch {
+                self.error = error.localizedDescription
+            }
+            isConnecting = false
+            return
+        }
+        if let validation = draft.validationError {
+            error = validation
+            isConnecting = false
+            return
+        }
         if let existing = sessions.first(where: { !$0.isSynthetic && $0.connection.endpointKey == draft.endpointKey && $0.id != draft.id }) {
             if sessions.contains(where: { $0.id == draft.id }) {
                 error = "This destination already exists. Edit its saved connection instead."
@@ -125,7 +185,7 @@ final class MonitorModel {
                 do { try SnapshotStore.remove(id: session.id) }
                 catch { self.error = error.localizedDescription }
             } else { sessions.append(session) }
-            do { try SnapshotStore.upsertServer(id: session.id, name: newConnection.displayName) }
+            do { try SnapshotStore.upsertServer(id: session.id, name: newConnection.displayName, iconName: newConnection.iconName) }
             catch { self.error = error.localizedDescription }
             select(session.id)
             sampleSnapshot = nil
@@ -200,7 +260,7 @@ final class MonitorModel {
 
     private func publish(_ session: ServerSession, forceReload: Bool) throws {
         guard let reading = session.snapshot else { return }
-        try SnapshotStore.write(reading, for: session.id, name: session.connection.displayName)
+        try SnapshotStore.write(reading, for: session.id, name: session.connection.displayName, iconName: session.connection.iconName)
         if forceReload || Date.now.timeIntervalSince(lastWidgetReload) >= 60 {
             WidgetCenter.shared.reloadAllTimelines()
             lastWidgetReload = .now
