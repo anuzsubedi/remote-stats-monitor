@@ -23,22 +23,27 @@ enum RenderPreviews {
             try data.write(to: directory.appending(path: "app-icon.png"))
         }
         let model = MonitorModel(preview: true)
-        try renderNative(MenuPanel(model: model, previewLayout: .single), width: 410, height: 650, to: directory.appending(path: "menu-panel.png"))
+        try renderNative(MenuPanel(model: model, previewLayout: .single), width: 420, height: 650, to: directory.appending(path: "menu-panel.png"))
         try renderNative(ProcessesView(model: model), width: 640, height: 620, to: directory.appending(path: "processes.png"))
-        try renderNative(ConnectionView(model: model), width: 520, height: 680, to: directory.appending(path: "connection.png"), fitHeight: true)
+        try renderNative(ConnectionView(model: model), width: 560, height: 680, to: directory.appending(path: "connection.png"), fitHeight: true)
         model.draft.authentication = .password
-        try renderNative(ConnectionView(model: model), width: 520, height: 680, to: directory.appending(path: "connection-password.png"), fitHeight: true)
+        try renderNative(ConnectionView(model: model), width: 560, height: 680, to: directory.appending(path: "connection-password.png"), fitHeight: true)
         model.draft.authentication = .privateKey
-        try renderNative(ConnectionView(model: model), width: 520, height: 680, to: directory.appending(path: "connection-key.png"), fitHeight: true)
+        try renderNative(ConnectionView(model: model), width: 560, height: 680, to: directory.appending(path: "connection-key.png"), fitHeight: true)
         #if DEBUG
         try renderNative(ServersView(model: model), width: 780, height: 720, to: directory.appending(path: "servers-empty.png"))
         model.addSyntheticServers(publish: false)
         try renderNative(ServersView(model: model), width: 780, height: 720, to: directory.appending(path: "servers-overview.png"))
         try renderNative(ServersView(model: model), width: 660, height: 500, to: directory.appending(path: "servers-compact.png"))
-        try renderNative(MenuPanel(model: model, previewLayout: .single), width: 410, height: 700, to: directory.appending(path: "test-servers.png"), fitHeight: true)
+        try renderNative(MenuPanel(model: model, previewLayout: .single), width: 420, height: 700, to: directory.appending(path: "test-servers.png"), fitHeight: true)
         for layout in ServerLayout.allCases {
-            try renderNative(MenuPanel(model: model, previewLayout: layout), width: layout == .single ? 410 : 500, height: 600, to: directory.appending(path: "menu-\(layout.rawValue).png"), fitHeight: true)
+            try renderNative(MenuPanel(model: model, previewLayout: layout), width: layout == .single ? 420 : 500, height: 600, to: directory.appending(path: "menu-\(layout.rawValue).png"), fitHeight: true)
             try renderNative(ServersView(model: model, previewLayout: layout), width: 860, height: 720, to: directory.appending(path: "app-\(layout.rawValue).png"))
+        }
+        try renderNative(ProcessesView(model: model), width: 640, height: 620, to: directory.appending(path: "processes-populated.png"))
+        if let offline = model.sessions.first(where: { $0.error != nil }) {
+            model.selectedID = offline.id
+            try renderNative(MenuPanel(model: model, previewLayout: .single), width: 420, height: 700, to: directory.appending(path: "menu-offline.png"), fitHeight: true)
         }
         try renderNative(SettingsView(model: model), width: 580, height: 440, to: directory.appending(path: "settings.png"))
         for capacity in [4, 8] {
@@ -52,12 +57,31 @@ enum RenderPreviews {
     }
 
     @MainActor private static func renderNative<V: View>(_ content: V, width: Double, height: Double, to file: URL, fitHeight: Bool = false) throws {
-        let view = NSHostingView(rootView: content.background(.background).environment(\.colorScheme, .light))
+        let environment = ProcessInfo.processInfo.environment
+        if let only = environment["PREVIEW_ONLY"],
+           !only.split(separator: ",").contains(Substring(file.deletingPathExtension().lastPathComponent)) { return }
+        let dark = environment["PREVIEW_DARK"] == "1"
+        NSApp.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        let view = NSHostingView(rootView: content.background(.background).environment(\.colorScheme, dark ? .dark : .light))
         view.frame = NSRect(x: 0, y: 0, width: width, height: height)
         if fitHeight { view.frame.size.height = view.fittingSize.height }
         let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         window.contentView = view
         view.layoutSubtreeIfNeeded()
+        if environment["PREVIEW_WINDOW_CAPTURE"] == "1" {
+            window.setFrameOrigin(NSPoint(x: 40, y: 40))
+            window.makeKeyAndOrderFront(nil)
+            RunLoop.current.run(until: Date.now.addingTimeInterval(0.25))
+            let capture = Process()
+            capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            capture.arguments = ["-x", "-o", "-l", String(window.windowNumber), file.path]
+            try capture.run()
+            capture.waitUntilExit()
+            window.close()
+            guard capture.terminationStatus == 0 else { throw MonitorError.message("Window capture failed.") }
+            return
+        }
         guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
             throw MonitorError.message("Could not render the native view.")
         }

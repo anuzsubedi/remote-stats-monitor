@@ -5,99 +5,165 @@ struct ServerBrowser: View {
     let layout: ServerLayout
     var search = ""
     var compact = false
+
     @Environment(\.openWindow) private var openWindow
 
     private var sessions: [ServerSession] {
-        model.sessions.filter { search.isEmpty || $0.connection.displayName.localizedStandardContains(search) }
+        model.sessions
+            .filter { search.isEmpty || $0.connection.displayName.localizedStandardContains(search) }
             .sorted { $0.connection.displayName.localizedStandardCompare($1.connection.displayName) == .orderedAscending }
     }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 5)) { timeline in
-            if sessions.isEmpty {
-                ContentUnavailableView(search.isEmpty ? "No servers" : "No matching servers", systemImage: "server.rack",
-                                       description: Text(search.isEmpty ? "Add an SSH connection to start monitoring." : "Try another server name."))
-            } else if layout == .single {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        Picker("Server", selection: $model.selectedID) {
-                            ForEach(sessions) { Text($0.connection.displayName).tag(Optional($0.id)) }
-                        }.onChange(of: model.selectedID) { if let id = model.selectedID { model.select(id) } }
-                        ServerSummaryView(snapshot: model.snapshot, name: model.connection?.displayName, currentDate: timeline.date, compact: compact)
-                        if let error = model.selectedSession?.error {
-                            Label(error, systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(PiTheme.warning)
+            switch layout {
+            case .single:
+                ServerDetailView(model: model, currentDate: timeline.date, compact: compact, showsServerPicker: true)
+            case .list:
+                listView(currentDate: timeline.date)
+            case .grid:
+                gridView(currentDate: timeline.date)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func listView(currentDate: Date) -> some View {
+        if sessions.isEmpty {
+            emptyView
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(sessions) { session in
+                        if compact {
+                            compactServerRow(session, currentDate: currentDate)
+                        } else {
+                            ServerOverviewRow(model: model, session: session, currentDate: currentDate)
                         }
-                        if let snapshot = model.snapshot {
-                            Divider()
-                            TopProcessesView(snapshot: snapshot, limit: compact ? 3 : 5)
-                        }
-                        HStack {
-                            Button("Processes", systemImage: "list.bullet.rectangle") { openWindow(id: "processes"); NSApp.activate() }
-                                .disabled(model.selectedID == nil)
-                            Spacer()
-                            Menu("Connection", systemImage: "network") {
-                                Button("Refresh readings") { Task { await model.refresh() } }.disabled(model.isRefreshing)
-                                if model.selectedSession?.isSynthetic != true {
-                                    Button("Edit connection…") { model.editSelected(); openWindow(id: "connection"); NSApp.activate() }
-                                }
-                            }.fixedSize().disabled(model.selectedID == nil)
-                        }
-                    }.padding(compact ? 16 : 24)
+                        Divider().padding(.leading, compact ? 18 : 24)
+                    }
                 }
-            } else if layout == .list {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(sessions) { session in
-                            if compact {
-                                Button { model.select(session.id) } label: {
-                                    VStack(alignment: .leading, spacing: 9) {
-                                        HStack {
-                                            Text(session.connection.displayName).font(.headline).lineLimit(1)
-                                            if model.selectedID == session.id { Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint) }
-                                            Spacer()
-                                            Text(session.error == nil ? ReadingStatus.label(session.snapshot, at: timeline.date) : "Disconnected")
-                                                .font(.caption).foregroundStyle(.secondary)
-                                        }
-                                        HStack {
-                                            ForEach([MonitorMetric.cpu, .gpu, .temperature, .memory]) { metric in
-                                                VStack(alignment: .center, spacing: 3) {
-                                                    Text(metric.rawValue).font(.caption2).foregroundStyle(.secondary)
-                                                    Text(metric.formatted(session.snapshot)).font(.callout.monospacedDigit().weight(.semibold))
-                                                        .foregroundStyle(metric.warning(session.snapshot) ? PiTheme.warning : PiTheme.ink)
-                                                }.frame(maxWidth: .infinity, alignment: .center)
-                                            }
-                                        }
-                                    }.padding(14).contentShape(.rect)
-                                }.buttonStyle(.plain)
-                                    .background(model.selectedID == session.id ? Color.accentColor.opacity(0.07) : .clear)
-                            } else {
-                                ServerOverviewRow(model: model, session: session, currentDate: timeline.date)
+                .padding(.vertical, compact ? 6 : 8)
+            }
+        }
+    }
+
+    private func compactServerRow(_ session: ServerSession, currentDate: Date) -> some View {
+        let isSelected = session.id == model.selectedID
+        let status = session.error == nil
+            ? (session.isSynthetic ? "Test server" : ReadingStatus.label(session.snapshot, at: currentDate))
+            : "Disconnected"
+
+        return Button { model.select(session.id) } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    Image(systemName: "server.rack")
+                        .font(.title3)
+                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                        .frame(width: 22)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(session.connection.displayName)
+                            .font(.body.weight(.medium))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Text(status)
+                            .font(.caption)
+                            .foregroundStyle(session.error == nil ? Color.secondary : PiTheme.warning)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.tint)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    ForEach([MonitorMetric.cpu, .gpu, .temperature, .memory]) { metric in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(metric == .temperature ? "Temp" : metric.rawValue)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(metric.formatted(session.snapshot))
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(metric.warning(session.snapshot) ? PiTheme.warning : PiTheme.ink)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.leading, 34)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .contentShape(.rect(cornerRadius: 9))
+            .background(isSelected ? Color.accentColor.opacity(0.09) : .clear, in: .rect(cornerRadius: 9))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .accessibilityLabel("\(session.connection.displayName), \(status), CPU \(MonitorMetric.cpu.formatted(session.snapshot)), GPU \(MonitorMetric.gpu.formatted(session.snapshot)), temperature \(MonitorMetric.temperature.formatted(session.snapshot)), memory \(MonitorMetric.memory.formatted(session.snapshot))")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private func gridView(currentDate: Date) -> some View {
+        if sessions.isEmpty {
+            emptyView
+        } else {
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: compact ? 205 : 260), spacing: 12)], spacing: 12) {
+                    ForEach(sessions) { session in
+                        VStack(alignment: .leading, spacing: 12) {
+                            Button { model.select(session.id) } label: {
+                                ServerTileView(
+                                    record: .init(
+                                        server: .init(id: session.id, name: session.connection.displayName),
+                                        snapshot: session.snapshot
+                                    ),
+                                    currentDate: currentDate
+                                )
+                                .contentShape(.rect)
                             }
-                            Divider()
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(session.connection.displayName), \(ReadingStatus.label(session.snapshot, at: currentDate)), CPU \(MonitorMetric.cpu.formatted(session.snapshot)), GPU \(MonitorMetric.gpu.formatted(session.snapshot)), temperature \(MonitorMetric.temperature.formatted(session.snapshot)), memory \(MonitorMetric.memory.formatted(session.snapshot))")
+                            .accessibilityAddTraits(session.id == model.selectedID ? .isSelected : [])
+
+                            HStack {
+                                if session.id == model.selectedID {
+                                    Label("Selected", systemImage: "checkmark.circle.fill")
+                                        .foregroundStyle(.tint)
+                                }
+                                Spacer()
+                                Button("Processes") {
+                                    model.select(session.id)
+                                    openWindow(id: "processes")
+                                    NSApp.activate()
+                                }
+                                .help("Open this server's processes")
+                            }
+                            .font(.caption)
+                        }
+                        .padding(14)
+                        .background(.background, in: .rect(cornerRadius: 12))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(session.id == model.selectedID ? Color.accentColor : Color.secondary.opacity(0.2))
                         }
                     }
                 }
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: compact ? 200 : 260))], spacing: 12) {
-                        ForEach(sessions) { session in
-                            VStack(alignment: .leading, spacing: 12) {
-                                Button { model.select(session.id) } label: {
-                                    ServerTileView(record: .init(server: .init(id: session.id, name: session.connection.displayName), snapshot: session.snapshot), currentDate: timeline.date)
-                                        .contentShape(.rect)
-                                }.buttonStyle(.plain)
-                                HStack {
-                                    if model.selectedID == session.id { Label("Selected", systemImage: "checkmark.circle.fill").foregroundStyle(.tint) }
-                                    Spacer()
-                                    Button("Processes") { model.select(session.id); openWindow(id: "processes"); NSApp.activate() }
-                                }.font(.caption)
-                            }.padding(16)
-                                .background(.background, in: .rect(cornerRadius: 12))
-                                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(model.selectedID == session.id ? Color.accentColor : Color.secondary.opacity(0.2)))
-                        }
-                    }.padding(16)
-                }
+                .padding(14)
             }
         }
+    }
+
+    private var emptyView: some View {
+        ContentUnavailableView(
+            search.isEmpty ? "No servers" : "No matching servers",
+            systemImage: "server.rack",
+            description: Text(search.isEmpty ? "Add an SSH connection to start monitoring." : "Try another server name.")
+        )
     }
 }

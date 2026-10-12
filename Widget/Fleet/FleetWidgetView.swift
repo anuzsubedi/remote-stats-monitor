@@ -4,45 +4,44 @@ import WidgetKit
 struct FleetWidgetView: View {
     let entry: FleetEntry
 
+    private let columns: [(title: String, metric: MonitorMetric)] = [
+        ("°C", .temperature),
+        ("CPU", .cpu),
+        ("GPU", .gpu),
+        ("MEM", .memory)
+    ]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if entry.records.isEmpty {
-                Text("No servers").font(.headline)
-                Text("Edit this widget to choose servers.").font(.caption).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("No servers selected", systemImage: "server.rack")
+                        .font(.headline)
+                    Text("Add servers in Remote Stats Monitor, then edit this widget to choose them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxHeight: .infinity, alignment: .center)
             } else {
-                HStack {
-                    Text("Servers").fontWeight(.semibold)
-                    Spacer()
-                    ForEach(["°C", "CPU", "GPU", "MEM"], id: \.self) { label in
-                        Text(label).frame(width: 34)
+                HStack(spacing: 4) {
+                    Text("Servers")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(columns, id: \.title) { column in
+                        Text(column.title)
+                            .frame(width: 38, alignment: .trailing)
                     }
-                }.font(.caption2).foregroundStyle(.secondary)
-                ForEach(Array(entry.records.prefix(entry.capacity)), id: \.server.id) { record in
-                    HStack(spacing: 8) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 3) {
-                                if record.snapshot?.connectionError != nil {
-                                    Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
-                                }
-                                Text(record.server.name).lineLimit(1).truncationMode(.middle)
-                            }.font(.caption.weight(.medium))
-                            if entry.capacity > 4 {
-                                Text(ReadingStatus.label(record.snapshot, at: entry.date)).font(.caption2).foregroundStyle(.secondary)
-                            }
-                        }.frame(maxWidth: .infinity, alignment: .leading)
-                        ForEach([MonitorMetric.temperature, .cpu, .gpu, .memory]) { metric in
-                            VStack(spacing: 3) {
-                                Text(metric.formatted(record.snapshot)).font(.system(size: 10, weight: .medium).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
-                                    .frame(maxWidth: .infinity)
-                                    .foregroundStyle(metric.warning(record.snapshot) ? Color.orange : .primary)
-                                if metric != .temperature {
-                                    WidgetUsageScale(value: record.snapshot.flatMap { metric.value($0) }, warning: metric.warning(record.snapshot))
-                                }
-                            }.frame(width: 34)
-                        }
-                    }.frame(maxHeight: .infinity)
+                }
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 2)
+
+                ForEach(Array(entry.records.prefix(entry.capacity).enumerated()), id: \.element.server.id) { index, record in
+                    if index > 0 { Divider() }
+                    WidgetFleetServerRow(record: record, date: entry.date, compact: entry.capacity == 4)
+                        .frame(maxHeight: .infinity)
                 }
             }
-        }.containerBackground(.background, for: .widget)
+        }
+        .containerBackground(for: .widget) { WidgetGlassBackground() }
     }
 }

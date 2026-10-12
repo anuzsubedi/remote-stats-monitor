@@ -1,23 +1,62 @@
-# Design
+---
+name: Remote Stats Monitor
+description: Native macOS server monitoring surfaces
+typography:
+  body:
+    fontFamily: SF Pro
+    fontWeight: 400
+  reading:
+    fontFamily: SF Pro
+    fontWeight: 600
+spacing:
+  compact: 8px
+  control: 12px
+  panel: 16px
+  window: 24px
+rounded:
+  selection: 9px
+  panel: 12px
+---
 
-Remote Stats Monitor is a native macOS utility for checking remote Linux server readings. SwiftUI and WidgetKit supply system materials, semantic colors, and SF typography. The minimum macOS version is 26.
+## Overview
 
-## App
+This is an operating interface for checking remote Linux servers over SSH. Native macOS typography, controls, semantic surfaces, and system appearance govern every screen. The minimum macOS version is 26. The app icon remains a single charcoal telemetry glyph on neutral off-white, compiled directly from `AppIcon.icon`.
 
-The menu bar defaults to the selected server. Users can switch to list or grid layouts and open a larger server browser. Connection editing, process inspection, and Settings use native controls. Keep copy concrete, keyboard access clear, and errors attached to the relevant operation.
+## Colors
 
-## Widgets
+Use SwiftUI semantic foregrounds (`.primary`, `.secondary`), native backgrounds, and `Color.accentColor`. Accent identifies selection and measured usage. Orange marks warning conditions and accompanies a status label or symbol. Connected state uses green with text; never rely on color alone. Respect light, dark, and system widget rendering.
 
-Overview widgets use a two-column metric grid with measured usage scales. Medium and large sizes show CPU, memory, GPU, and disk; small replaces disk with temperature. Large adds ranked processes. Individual metric widgets pair a value with a labeled 0–100 scale, using degrees Celsius for temperature.
+## Typography
 
-Fleet lists align temperature, CPU, GPU, and memory columns. Fleet grids give each host a CPU scale and compact supporting readings. Process widgets rank by CPU with aligned memory values. Single-server headers place previous and next chevrons around a centered name; no inline selector or navigation footer.
+Use SF system styles for UI. Server names lead; status and timestamps sit beneath. Metric values use monospaced digits, consistent precision, and a single line. Missing readings show a dash. Truncate long host names in the middle, preserving identifying suffixes. Labels remain distinct from numeric values.
 
-Values use monospaced digits and remain on one line. Missing readings use a dash and empty scale. Orange indicates warning conditions, accompanied by status text or an SF Symbol. No historical data is invented. Backgrounds and secondary text adapt to light, dark, and system widget appearance.
+## Layout
 
-## App icon
+The server window pairs a searchable list or grid with the selected server's detail. Single-server mode focuses on that detail. The menu defaults to the selected server and exposes Server, List, and Grid layouts. New connections become selected automatically.
 
-`AppIcon.icon` is the editable Icon Composer source. It uses a neutral off-white background and a single charcoal telemetry glyph. Keep it monochrome and minimal, with no rack details or colored background. Xcode compiles it directly. Do not recreate a competing `AppIcon.appiconset`.
+The selected detail uses a two-column metric layout, supporting capacity totals, GPU availability, uptime, and processes. Menu fleet rows retain CPU, GPU, temperature, and memory readings. Window content scrolls as needed; primary connection actions stay outside the scrolling form.
 
-## Verification
+Widgets use one native Liquid Glass container surface, with an opaque system-background fallback when Reduce Transparency is enabled. Metrics remain unboxed above the glass. Widgets have deliberate layouts for small, medium, and large sizes. Fleet widgets cap medium layouts at four servers and large layouts at eight. Preserve meaningful metric and server labels at compact sizes.
 
-Use native offscreen previews for small, medium, and large layout checks. These do not reproduce the desktop compositor or replace live WidgetKit verification. Configuration construction tests catch gallery metadata failures that content previews do not.
+## Elevation & Depth
+
+Use native system materials and control treatments. Divide regions with spacing and subtle separators. Avoid decorative shadows, gradients, and layered cards. Selection should remain legible without overpowering the data.
+
+## Shapes
+
+Use native button shapes. Rounded selection regions and data panels use modest corner radii. Usage scales encode actual measurements; they are not decoration or invented history.
+
+## Components
+
+- Server headers expose state and context before metrics. Connection actions remain available alongside the selected server.
+- Single-server widgets use only previous and next arrows around the server name. System Edit Widget selects a configured server; do not add an inline selector.
+- Forms use grouped sections, explicit field labels, inline errors, and native authentication controls. GPU collection remains optional and off by default.
+- Processes use aligned numeric columns and clear empty/search states.
+- Widget descriptions must be static string literals; interpolated descriptions can crash WidgetKit gallery registration.
+- Debug samples remain visibly identified and separate from saved SSH credentials.
+
+## Do's and Don'ts
+
+Keep copy concrete, keyboard controls accessible, and unavailable or old readings distinguishable from fresh values. Preserve the minimal icon. Do not invent telemetry, hide missing sensors as zero, add marketing copy, or promise real-time WidgetKit refreshes.
+
+Verify actual app and widget layouts in both system appearances, compact window sizes, and all supported widget sizes. Offscreen NSHostingView previews check layout but do not reproduce the desktop compositor or prove interactive WidgetKit behavior.

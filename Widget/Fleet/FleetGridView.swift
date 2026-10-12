@@ -7,9 +7,16 @@ struct FleetGridView: View {
     var body: some View {
         Group {
             if entry.records.isEmpty {
-                Text("Add servers in Remote Stats Monitor, then edit this widget to choose them.").font(.caption)
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("No servers selected", systemImage: "server.rack")
+                        .font(.headline)
+                    Text("Add servers in Remote Stats Monitor, then edit this widget to choose them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxHeight: .infinity, alignment: .center)
             } else {
-                Grid(horizontalSpacing: 12, verticalSpacing: 8) {
+                Grid(horizontalSpacing: 16, verticalSpacing: 10) {
                     ForEach(0..<(min(entry.records.count, entry.capacity) + 1) / 2, id: \.self) { row in
                         GridRow {
                             ForEach(0..<2, id: \.self) { column in
@@ -22,6 +29,6 @@ struct FleetGridView: View {
                     }
                 }
             }
-        }.containerBackground(.background, for: .widget)
+        }.containerBackground(for: .widget) { WidgetGlassBackground() }
     }
 }
